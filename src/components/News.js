@@ -1,54 +1,98 @@
-import React, { Component } from "react";
-import NewsItem from "./NewsItem";
+import React, { Component } from 'react'
+import NewsItem from './NewsItem'
+import Spinner from './Spinner';
+import PropTypes from 'prop-types'
+import InfiniteScroll from "react-infinite-scroll-component";
 
 export class News extends Component {
-   articles= [
-    {
-      "source": { "id": "google-news", "name": "Google News" },
-      "author": null,
-      "title": "IIT JEE Advanced 2022 Result Declared LIVE Updates: Score cards, final answer released; R K Shishir earns top rank - The Indian Express",
-      "description": null,
-      "url": "https://news.google.com/__i/rss/rd/articles/CBMioAFodHRwczovL2luZGlhbmV4cHJlc3MuY29tL2FydGljbGUvZWR1Y2F0aW9uL2lpdC1ib21iYXktamVlLWFkdmFuY2VkLTIwMjItcmVzdWx0LWxpdmUtdXBkYXRlcy1oZXJlcy1ob3ctdG8tY2hlY2stc2NvcmUtY2FyZC10b3BwZXJzLWxpc3QtYXQtamVlYWR2LWFjLWluLTgxMDU1Mjkv0gEA?oc=5",
-      "urlToImage": null,
-      "publishedAt": "2022-09-11T06:36:50Z",
-      "content": null
+    static defaultProps = {
+        country: 'in',
+        pageSize: 8,
+        category: 'general',
     }
-   
-  ]
-  constructor() {
-    super();
-    this.state = {
-      articles: this.articles,
-      Loading: false,
-    };
-  }
-   async componentDidMount(){
-    let url="https://newsapi.org/v2/top-headlines?country=in&apiKey=5beeaf5b46fa43218177b1a7a1ec5891"
-    let data= await fetch(url) 
-    let jdata= await data.json()
-    console.log(jdata.articles)
-    this.setState({ articles : jdata.articles})
-  }
-  render() {
-    return (
-      <div className="container my-3 ">
-          <div>
-          <h2>News -Headlines</h2>
-          <div className="row">
-            {this.state.articles.map((element)=>{
-            return <div key={element.url} className="col-md-4 my-3">
-            <NewsItem
-              title={element.title}
-              description={element.description?element.description.slice(0,100):"..."}
-              ImageUrl={element.urlToImage}
-              Url={element.url}
-            ></NewsItem></div>  
-            })}
-         </div>   
-        </div>
-      </div>
-    );
-  }
+
+    static propTypes = {
+        country: PropTypes.string,
+        pageSize: PropTypes.number,
+        category: PropTypes.string,
+    }
+    capitalizeFirstLetter = (string) => {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+    }
+    constructor(props) {
+        super(props);
+        this.state = {
+            articles: [],
+            loading: true,
+            page: 1,
+            totalResults: 0
+        }
+        document.title = `${this.capitalizeFirstLetter(this.props.category)} - NewsMonkey`;
+    }
+
+    async updateNews() {
+        const url = `https://newsapi.org/v2/top-headlines?country=${this.props.country}&category=${this.props.category}&apiKey=d093053d72bc40248998159804e0e67d&page=${this.state.page}&pageSize=${this.props.pageSize}`;
+        this.setState({ loading: true });
+        let data = await fetch(url);
+        let parsedData = await data.json()
+        this.setState({
+            articles: parsedData.articles,
+            totalResults: parsedData.totalResults,
+            loading: false, 
+        })
+
+    }
+    async componentDidMount() {
+        this.updateNews();
+    }
+
+    handlePrevClick = async () => {
+        this.setState({ page: this.state.page - 1 });
+        this.updateNews();
+    }
+
+    handleNextClick = async () => {
+        this.setState({ page: this.state.page + 1 });
+        this.updateNews()
+    }
+
+    fetchMoreData = async () => {  
+        this.setState({page: this.state.page + 1})
+        const url = `https://newsapi.org/v2/top-headlines?country=${this.props.country}&category=${this.props.category}&apiKey=d093053d72bc40248998159804e0e67d&page=${this.state.page}&pageSize=${this.props.pageSize}`;
+        let data = await fetch(url);
+        let parsedData = await data.json()
+        this.setState({
+            articles: this.state.articles.concat(parsedData.articles),
+            totalResults: parsedData.totalResults
+        })
+      };
+
+    render() {
+        return (
+            <>
+                <h1 className="text-center" style={{ margin: '35px 0px' }}>NewsMonkey - Top {this.capitalizeFirstLetter(this.props.category)} Headlines</h1>
+                {this.state.loading && <Spinner />}
+                <InfiniteScroll
+                    dataLength={this.state.articles.length}
+                    next={this.fetchMoreData}
+                    hasMore={this.state.articles.length !== this.state.totalResults}
+                    loader={<Spinner/>}
+                > 
+                    <div className="container">
+                         
+                    <div className="row">
+                        {this.state.articles.map((element) => {
+                            return <div className="col-md-4" key={element.url}>
+                                <NewsItem title={element.title ? element.title : ""} description={element.description ? element.description : ""} imageUrl={element.urlToImage} newsUrl={element.url} author={element.author} date={element.publishedAt} source={element.source.name} />
+                            </div>
+                        })}
+                    </div>
+                    </div> 
+                </InfiniteScroll>
+
+            </>
+        )
+    }
 }
 
-export default News;
+export default News
